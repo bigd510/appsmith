@@ -53,6 +53,7 @@ export const useSSHKeyPair = () => {
     dispatch(
       generateSSHKeyPair({
         onErrorCallback: onGenerateSSHKeyFailure,
+        payload: { keyType: "ECDSA" },
       }),
     );
     // }
