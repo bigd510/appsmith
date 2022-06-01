@@ -4,6 +4,7 @@ import {
   createMessage,
   DELETE_CONFIRMATION_MODAL_TITLE,
   DEPLOY_KEY_USAGE_GUIDE_MESSAGE,
+  GENERATE_SSH_KEY,
   REGENERATE_KEY_CONFIRM_MESSAGE,
   REGENERATE_SSH_KEY,
   SSH_KEY,
@@ -28,7 +29,10 @@ import {
 } from "components/ads/NotificationBanner";
 import { Toaster } from "components/ads/Toast";
 import { Variant } from "components/ads/common";
-import { useSSHKeyPair } from "../hooks/useSSHKeyPair";
+import { useSSHKeyPair } from "../hooks";
+import { useSelector } from "react-redux";
+import { getSupportedKeyTypes } from "selectors/gitSyncSelectors";
+import { SSHKeyType } from "actions/gitSyncActions";
 
 const TooltipWrapper = styled.div`
   display: flex;
@@ -130,6 +134,35 @@ function CopySSHKey(showCopied: boolean, copyToClipboard: () => void) {
   );
 }
 
+const defaultKeyType = {
+  keySize: 256,
+  platFormSupported: "",
+  protocolName: "ECDSA",
+};
+
+export type SupportedKeyType = SSHKeyType & {
+  text: string;
+};
+
+function supportedKeyList(
+  keys: SSHKeyType[],
+  selected: string,
+): SupportedKeyType[] {
+  const first: SupportedKeyType = {
+    ...keys?.filter((key: SSHKeyType) => key.protocolName === selected)[0],
+    text: createMessage(REGENERATE_SSH_KEY, selected),
+  };
+  const rest =
+    keys
+      ?.filter((key: SSHKeyType) => key.protocolName !== selected)
+      .map((key: SSHKeyType) => ({
+        ...key,
+        text: createMessage(GENERATE_SSH_KEY, key.protocolName),
+      })) || [];
+
+  return [first, ...rest];
+}
+
 function DeployedKeyUI(props: DeployedKeyUIProps) {
   const { copyToClipboard, deployKeyDocUrl, showCopied, SSHKeyPair } = props;
   const { generateSSHKey } = useSSHKeyPair();
@@ -138,6 +171,11 @@ function DeployedKeyUI(props: DeployedKeyUIProps) {
   const [showKeyGeneratedMessage, setShowKeyGeneratedMessage] = useState(true);
 
   const [keyType, keyVal, keyName] = SSHKeyPair.split(" ");
+  const exactKeyType = keyType.startsWith("ecdsa") ? "ECDSA" : "RSA";
+  const supportedKeys = supportedKeyList(
+    useSelector(getSupportedKeyTypes) || [defaultKeyType],
+    exactKeyType,
+  );
   const keyText = `${keyVal} ${keyName}`;
   const learnMoreClickHandler = () => {
     AnalyticsUtil.logEvent("GS_GIT_DOCUMENTATION_LINK_CLICK", {
@@ -202,13 +240,20 @@ function DeployedKeyUI(props: DeployedKeyUIProps) {
               </MoreOptionsContainer>
             }
           >
-            {isMenuOpen && !showConfirmation && (
-              <MenuItem
-                cypressSelector="t--regenerate-sshkey"
-                onSelect={() => setShowConfirmation(true)}
-                text={createMessage(REGENERATE_SSH_KEY)}
-              />
-            )}
+            {isMenuOpen &&
+              !showConfirmation &&
+              supportedKeys.map(
+                (supportedKey: SupportedKeyType, index: number) => {
+                  return (
+                    <MenuItem
+                      cypressSelector="t--regenerate-sshkey"
+                      key={`supported-key-${index}`}
+                      onSelect={() => setShowConfirmation(true)}
+                      text={supportedKey.text}
+                    />
+                  );
+                },
+              )}
             {isMenuOpen && showConfirmation && (
               <ConfirmMenuItem>
                 <Text type={TextType.P3}>

@@ -275,7 +275,15 @@ export const importAppFromGit = ({
 });
 
 type ErrorPayload = string;
+
+export type SSHKeyType = {
+  keySize: number;
+  platFormSupported: string;
+  protocolName: string;
+};
+
 export type GetSSHKeyResponseData = {
+  gitSupportedSSHKeyType: SSHKeyType[];
   docUrl: string;
   publicKey?: string;
 };
